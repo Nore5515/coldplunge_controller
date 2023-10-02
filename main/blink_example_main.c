@@ -125,19 +125,30 @@ void i2cTask(void *ignore)
 
     i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0);
 
+    uint8_t byteArray[4];
+
     while (1)
     {
+        floatToByteArray(steinTemp, byteArray);
+
         esp_err_t res;
         i2c_cmd_handle_t cmd = i2c_cmd_link_create();
         i2c_master_start(cmd);
         i2c_master_write_byte(cmd, (0x12 << 1) | I2C_MASTER_WRITE, 1 /* expect ack */);
-        i2c_master_write_byte(cmd, 0xAF, 1 /* expect ack */);
+        i2c_master_write(cmd, byteArray, 4, 1);
         i2c_master_stop(cmd);
+
+        printf("Byte array: ");
+        for (int i = 0; i < 4; i++)
+        {
+            printf("%02X ", byteArray[i]);
+        }
+        printf("\n");
 
         res = i2c_master_cmd_begin(I2C_NUM_0, cmd, 10 / portTICK_PERIOD_MS);
         printf("Sending Data!\n");
         i2c_cmd_link_delete(cmd);
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        vTaskDelay(pdMS_TO_TICKS(3000));
     }
 }
 
