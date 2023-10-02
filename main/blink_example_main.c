@@ -37,6 +37,18 @@ static void blink_led(void)
     gpio_set_level(BLINK_GPIO, s_led_state);
 }
 
+static void raise_high_gpio(void)
+{
+    /* Set the GPIO level according to the state (LOW or HIGH)*/
+    gpio_set_level(BLINK_GPIO, 1);
+}
+
+static void raise_low_gpio(void)
+{
+    /* Set the GPIO level according to the state (LOW or HIGH)*/
+    gpio_set_level(BLINK_GPIO, 0);
+}
+
 static void configure_led(void)
 {
     ESP_LOGI(TAG, "Example configured to blink GPIO LED!");
@@ -92,10 +104,19 @@ void app_main(void)
         printf("\tADC Voltage: %f\n", GetVoltageFromAdc(results));
         printf("\tResistance: %f\n", GetResistance(results));
         printf("\tSteinhart TEMP: %f\n", GetSteinhartValue(results));
+
+        if (GetSteinhartValue(results) <= 5.0f)
+        {
+            raise_low_gpio();
+        }
+        else
+        {
+            raise_high_gpio();
+        }
         ESP_LOGI(TAG, "Turning the LED %s!", s_led_state == true ? "ON" : "OFF");
-        blink_led();
+        // blink_led();
         /* Toggle the LED state */
-        s_led_state = !s_led_state;
+        // s_led_state = !s_led_state;
         vTaskDelay(CONFIG_BLINK_PERIOD / portTICK_PERIOD_MS);
     }
 }
