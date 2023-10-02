@@ -40,6 +40,8 @@ static const char *TAG = "COLD-PLUNGE";
 
 static uint8_t s_led_state = 0;
 
+float steinTemp = -1.0f;
+
 static void blink_led(void)
 {
     /* Set the GPIO level according to the state (LOW or HIGH)*/
@@ -99,6 +101,17 @@ float GetSteinhartValue(uint16_t adcValue)
     return SteinhartCalc(GetResistance(adcValue));
 }
 
+void floatToByteArray(float value, uint8_t *byteArray)
+{
+    // Assuming a little-endian architecture
+    uint32_t intValue = *((uint32_t *)&value);
+
+    byteArray[0] = (uint8_t)(intValue & 0xFF);
+    byteArray[1] = (uint8_t)((intValue >> 8) & 0xFF);
+    byteArray[2] = (uint8_t)((intValue >> 16) & 0xFF);
+    byteArray[3] = (uint8_t)((intValue >> 24) & 0xFF);
+}
+
 void i2cTask(void *ignore)
 {
     i2c_config_t conf;
@@ -115,25 +128,16 @@ void i2cTask(void *ignore)
     while (1)
     {
         esp_err_t res;
-        for (uint8_t i = 3; i < 0x78; i++)
-        {
-            i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-            i2c_master_start(cmd);
-            i2c_master_write_byte(cmd, (i << 1) | I2C_MASTER_WRITE, 1 /* expect ack */);
-            i2c_master_write_byte(cmd, 0xAF, 1 /* expect ack */);
-            i2c_master_stop(cmd);
+        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (0x12 << 1) | I2C_MASTER_WRITE, 1 /* expect ack */);
+        i2c_master_write_byte(cmd, 0xAF, 1 /* expect ack */);
+        i2c_master_stop(cmd);
 
-            res = i2c_master_cmd_begin(I2C_NUM_0, cmd, 10 / portTICK_PERIOD_MS);
-            if (i % 16 == 0)
-                printf("\n%.2x:", i);
-            if (res == 0)
-                printf(" %.2x", i);
-            else
-                printf(" --");
-            i2c_cmd_link_delete(cmd);
-        }
-        printf("\n\n");
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        res = i2c_master_cmd_begin(I2C_NUM_0, cmd, 10 / portTICK_PERIOD_MS);
+        printf("Sending Data!\n");
+        i2c_cmd_link_delete(cmd);
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
 
@@ -149,10 +153,11 @@ void app_main(void)
     while (1)
     {
         uint16_t results = adc1_get_raw(ADC1_CHANNEL_4);
+        steinTemp = GetSteinhartValue(results);
         printf("\tRAW TEMP: %d\n", results);
         printf("\tADC Voltage: %f\n", GetVoltageFromAdc(results));
         printf("\tResistance: %f\n", GetResistance(results));
-        printf("\tSteinhart TEMP: %f\n", GetSteinhartValue(results));
+        printf("\tSteinhart TEMP: %f\n", steinTemp);
 
         if (GetSteinhartValue(results) <= 5.0f)
         {
