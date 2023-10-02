@@ -8,13 +8,22 @@
 */
 #include <stdio.h>
 #include <math.h>
+#include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
+#include "driver/i2c.h"
 #include "esp_log.h"
 #include "led_strip.h"
 #include "sdkconfig.h"
 #include "driver/adc.h"
+
+#ifndef APP_CPU_NUM
+#define APP_CPU_NUM PRO_CPU_NUM
+#endif
+
+#define SDA_PIN 16
+#define SCL_PIN 17
 
 #define THERMISTOR_A 0.001125308852122 // Steinhart-Hart coefficient A
 #define THERMISTOR_B 0.000234711863267 // Steinhart-Hart coefficient B
@@ -22,7 +31,7 @@
 #define THERMISTOR_R0 10000.0          // Thermistor resistance at nominal temperature (10K Ohms)
 #define ADC_RESOLUTION 4095            // 12-bit ADC resolution
 
-static const char *TAG = "example";
+static const char *TAG = "COLD-PLUNGE";
 
 /* Use project configuration menu (idf.py menuconfig) to choose the GPIO to blink,
    or you can edit the following line and set a number here.
@@ -90,12 +99,52 @@ float GetSteinhartValue(uint16_t adcValue)
     return SteinhartCalc(GetResistance(adcValue));
 }
 
+void i2cTask(void *ignore)
+{
+    i2c_config_t conf;
+    conf.mode = I2C_MODE_MASTER;
+    conf.sda_io_num = SDA_PIN;
+    conf.scl_io_num = SCL_PIN;
+    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
+    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
+    conf.master.clk_speed = 100000;
+    i2c_param_config(I2C_NUM_0, &conf);
+
+    i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0);
+
+    while (1)
+    {
+        esp_err_t res;
+        for (uint8_t i = 3; i < 0x78; i++)
+        {
+            i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+            i2c_master_start(cmd);
+            i2c_master_write_byte(cmd, (i << 1) | I2C_MASTER_WRITE, 1 /* expect ack */);
+            i2c_master_write_byte(cmd, 0xAF, 1 /* expect ack */);
+            i2c_master_stop(cmd);
+
+            res = i2c_master_cmd_begin(I2C_NUM_0, cmd, 10 / portTICK_PERIOD_MS);
+            if (i % 16 == 0)
+                printf("\n%.2x:", i);
+            if (res == 0)
+                printf(" %.2x", i);
+            else
+                printf(" --");
+            i2c_cmd_link_delete(cmd);
+        }
+        printf("\n\n");
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
 void app_main(void)
 {
 
     /* Configure the peripheral according to the LED type */
     configure_led();
     adc1_config_width(ADC_WIDTH_12Bit);
+
+    xTaskCreatePinnedToCore(i2cTask, TAG, configMINIMAL_STACK_SIZE * 8, NULL, 5, NULL, APP_CPU_NUM);
 
     while (1)
     {

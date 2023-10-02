@@ -4,7 +4,7 @@
   "idf.openOcdConfigs": [
     "board/esp32s3-builtin.cfg"
   ],
-  "idf.port": "/dev/cu.usbserial-11120",
+  "idf.port": "/dev/cu.usbserial-1130",
   "idf.flashType": "UART",
   "files.associations": {
     "freertos.h": "c"
