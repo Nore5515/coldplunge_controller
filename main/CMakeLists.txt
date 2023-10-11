@@ -1,2 +1,2 @@
-idf_component_register(SRCS "blink_example_main.c"
+idf_component_register(SRCS "coldplunge_controller_main.c"
                     INCLUDE_DIRS ".")

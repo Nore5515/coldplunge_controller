@@ -33,10 +33,12 @@
 
 static const char *TAG = "COLD-PLUNGE";
 
+#define TICK_MILISECONDS 250
+
 /* Use project configuration menu (idf.py menuconfig) to choose the GPIO to blink,
    or you can edit the following line and set a number here.
 */
-#define BLINK_GPIO CONFIG_BLINK_GPIO
+#define BLINK_GPIO 18
 
 static uint8_t s_led_state = 0;
 
@@ -148,7 +150,7 @@ void i2cTask(void *ignore)
         res = i2c_master_cmd_begin(I2C_NUM_0, cmd, 10 / portTICK_PERIOD_MS);
         printf("Sending Data!\n");
         i2c_cmd_link_delete(cmd);
-        vTaskDelay(pdMS_TO_TICKS(3000));
+        vTaskDelay(pdMS_TO_TICKS(TICK_MILISECONDS));
     }
 }
 
@@ -165,7 +167,7 @@ void app_main(void)
     {
         uint16_t results = adc1_get_raw(ADC1_CHANNEL_4);
         steinTemp = GetSteinhartValue(results);
-        printf("\tRAW TEMP: %d\n", results);
+        printf("\tRAW DATA: %d\n", results);
         printf("\tADC Voltage: %f\n", GetVoltageFromAdc(results));
         printf("\tResistance: %f\n", GetResistance(results));
         printf("\tSteinhart TEMP: %f\n", steinTemp);
@@ -178,10 +180,10 @@ void app_main(void)
         {
             raise_high_gpio();
         }
-        ESP_LOGI(TAG, "Turning the LED %s!", s_led_state == true ? "ON" : "OFF");
+        // ESP_LOGI(TAG, "Turning the LED %s!", s_led_state == true ? "ON" : "OFF");
         // blink_led();
         /* Toggle the LED state */
         // s_led_state = !s_led_state;
-        vTaskDelay(CONFIG_BLINK_PERIOD / portTICK_PERIOD_MS);
+        vTaskDelay(TICK_MILISECONDS / portTICK_PERIOD_MS);
     }
 }
